@@ -55,7 +55,7 @@ const Web3AuthComponent = () => {
         web3authInstance.configureAdapter(metamaskAdapter);
 
         await web3authInstance.initModal();
-        
+
         setWeb3auth(web3authInstance);
       } catch (error) {
         console.error("Error initializing Web3Auth:", error);
@@ -119,28 +119,33 @@ const Web3AuthComponent = () => {
     return <div>Loading...</div>;
   }
 
+  const truncateAddress = (addr) => {
+    return addr ? `${addr.slice(0, 4)}...${addr.slice(-4)}` : '';
+  };
+
   return (
-    <div>
+    <div className="flex flex-col items-center space-y-4">
       {!provider ? (
         <Button
           onClick={connectWallet}
           disabled={!web3auth}
-          color="primary"
+          style={{ backgroundColor: '#512DA8', color: 'white' }}
           auto
         >
           Connect Wallet
         </Button>
       ) : (
-        <div>
-          <Button onClick={() => getAddressAndBalance(provider)} color="secondary" auto>
-            Refresh Address and Balance
-          </Button>
-          <Button onClick={logout}  color="primary" auto>
-            Logout
-          </Button>
-          {address && <p>Address: {address}</p>}
-          {balance && <p>Balance: {balance} ETH</p>}
-        </div>
+        <Button 
+        style={{ backgroundColor: '#512DA8', color: 'white' }} 
+          auto 
+          onClick={logout} 
+          className="p-0 h-auto min-w-[150px]"
+        >
+          <div className="flex flex-col items-start py-1 px-3 w-full">
+            <span className="text-s">{truncateAddress(address)}</span>
+            <span className="text-s">Bal: {parseFloat(balance).toFixed(2)} ETH</span>
+          </div>
+        </Button>
       )}
     </div>
   );
