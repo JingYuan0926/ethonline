@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@layerzerolabs/oft-evm": "^0.0.11",
     "@nextui-org/button": "^2.0.37",
     "@nextui-org/react": "^2.4.6",
     "@nextui-org/system": "^2.2.5",
