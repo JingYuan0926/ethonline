@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import axios from 'axios';
-import { Button, Select, SelectItem } from "@nextui-org/react";
+import { Button } from "@nextui-org/react";
 import { 
   TOKEN_TRANSFER_ABI, 
   CONTRACT_ADDRESS, 
-  DESTINATION_CHAIN_SELECTOR_POLY, 
-  CCIP_BNM_TOKEN_ADDRESS_POLY,
   DESTINATION_CHAIN_SELECTOR_ARBI,
   CCIP_BNM_TOKEN_ADDRESS_ARBI
 } from '../utils/constants';
@@ -73,8 +71,6 @@ function AIChat() {
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showTransferOptions, setShowTransferOptions] = useState(false);
-  const [destinationChain, setDestinationChain] = useState('0'); // 0 for Polygon, 1 for Arbitrum
   const [transferStatus, setTransferStatus] = useState('');
 
   useEffect(() => {
@@ -133,26 +129,22 @@ function AIChat() {
 
   const handleTransfer = async () => {
     try {
-      const chainName = destinationChain === '0' ? 'Polygon' : 'Arbitrum';
-      setTransferStatus(`Initiating transfer from Ethereum to ${chainName}...`);
+      setTransferStatus('Initiating transfer from Ethereum to Arbitrum...');
 
       const receiver = await signer.getAddress();
       const amount = ethers.utils.parseUnits('0.001', 18); // 0.001 CCIP-BnM
 
-      const destinationSelector = destinationChain === '0' ? DESTINATION_CHAIN_SELECTOR_POLY : DESTINATION_CHAIN_SELECTOR_ARBI;
-      const tokenAddress = destinationChain === '0' ? CCIP_BNM_TOKEN_ADDRESS_POLY : CCIP_BNM_TOKEN_ADDRESS_ARBI;
-
       const transferWithSigner = transferContract.connect(signer);
       const tx = await transferWithSigner.transferTokensPayNative(
-        destinationSelector,
+        DESTINATION_CHAIN_SELECTOR_ARBI,
         receiver,
-        tokenAddress,
+        CCIP_BNM_TOKEN_ADDRESS_ARBI,
         amount
       );
 
       setTransferStatus('Transaction sent. Waiting for confirmation...');
       await tx.wait();
-      setTransferStatus(`Transfer to ${chainName} successful! Transaction hash: ${tx.hash}`);
+      setTransferStatus(`Transfer to Arbitrum successful! Transaction hash: ${tx.hash}`);
     } catch (error) {
       console.error('Error:', error);
       setTransferStatus('Error: ' + error.message);
@@ -164,7 +156,6 @@ function AIChat() {
     if (!message.trim() || !signer) return;
 
     setLoading(true);
-    setShowTransferOptions(false);
     setTransferStatus('');
     try {
       // Call OpenAI API
@@ -177,17 +168,6 @@ function AIChat() {
       await tx.wait();
 
       setResponse(aiResponse);
-
-      // Check if the message is about transferring and auto-select the destination chain
-      const lowerCaseMessage = message.toLowerCase();
-      if (lowerCaseMessage.includes('transfer')) {
-        setShowTransferOptions(true);
-        if (lowerCaseMessage.includes('arbitrum')) {
-          setDestinationChain('1');
-        } else if (lowerCaseMessage.includes('polygon')) {
-          setDestinationChain('0');
-        }
-      }
     } catch (error) {
       console.error("Error:", error);
       setResponse("An error occurred. Please try again.");
@@ -218,27 +198,16 @@ function AIChat() {
         </Button>
       </form>
       {response && (
-        <div className="mt-4 p-4 bg-blue-100 text-blue-700 rounded">
-          {response}
-        </div>
-      )}
-      {showTransferOptions && (
         <div className="mt-4">
-          <Select 
-            label="Select Destination Chain" 
-            value={destinationChain}
-            onChange={(e) => setDestinationChain(e.target.value)}
-            className="mb-4"
-          >
-            <SelectItem key="0" value="0">Polygon</SelectItem>
-            <SelectItem key="1" value="1">Arbitrum</SelectItem>
-          </Select>
+          <div className="p-4 bg-blue-100 text-blue-700 rounded mb-4">
+            {response}
+          </div>
           <Button 
             onClick={handleTransfer} 
             color="secondary"
             className="mb-4"
           >
-            Transfer ETH to {destinationChain === '0' ? 'Polygon' : 'Arbitrum'}
+            Transfer ETH to Arbitrum
           </Button>
         </div>
       )}

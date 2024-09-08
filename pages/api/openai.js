@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
+  apiKey: ,
 });
 
 export default async function handler(req, res) {
@@ -34,7 +35,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: response.choices[0].message.content.trim() });
     } catch (error) {
       console.error('OpenAI API Error:', error);
-      
+
       if (error.response) {
         console.error(error.response.status, error.response.data);
         return res.status(error.response.status).json(error.response.data);
