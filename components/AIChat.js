@@ -73,7 +73,9 @@ function AIChat() {
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTransferOptions, setShowTransferOptions] = useState(false);
   const [destinationChain, setDestinationChain] = useState('0'); // 0 for Polygon, 1 for Arbitrum
+  const [transferStatus, setTransferStatus] = useState('');
 
   useEffect(() => {
     const init = async () => {
@@ -129,41 +131,10 @@ function AIChat() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!message.trim() || !signer) return;
-
-    setLoading(true);
-    try {
-      // Call OpenAI API
-      const openAIResponse = await axios.post('/api/openai', { message });
-      const aiResponse = openAIResponse.data.message;
-
-      // Store conversation on Galadriel chain
-      const galadrielWithSigner = galadrielContract.connect(signer);
-      const tx = await galadrielWithSigner.storeConversation(message, aiResponse);
-      await tx.wait();
-
-      setResponse(aiResponse);
-
-      // Check if the message is about transferring to Polygon or Arbitrum
-      if (message.toLowerCase().includes('transfer to polygon') || message.toLowerCase().includes('transfer to arbitrum')) {
-        const chain = message.toLowerCase().includes('polygon') ? '0' : '1';
-        setDestinationChain(chain);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setResponse("An error occurred. Please try again.");
-    } finally {
-      setLoading(false);
-      setMessage('');
-    }
-  };
-
   const handleTransfer = async () => {
     try {
       const chainName = destinationChain === '0' ? 'Polygon' : 'Arbitrum';
-      setResponse(`Initiating transfer from Ethereum to ${chainName}...`);
+      setTransferStatus(`Initiating transfer from Ethereum to ${chainName}...`);
 
       const receiver = await signer.getAddress();
       const amount = ethers.utils.parseUnits('0.001', 18); // 0.001 CCIP-BnM
@@ -179,12 +150,50 @@ function AIChat() {
         amount
       );
 
-      setResponse('Transaction sent. Waiting for confirmation...');
+      setTransferStatus('Transaction sent. Waiting for confirmation...');
       await tx.wait();
-      setResponse(`Transfer to ${chainName} successful! Transaction hash: ${tx.hash}`);
+      setTransferStatus(`Transfer to ${chainName} successful! Transaction hash: ${tx.hash}`);
     } catch (error) {
       console.error('Error:', error);
-      setResponse('Error: ' + error.message);
+      setTransferStatus('Error: ' + error.message);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!message.trim() || !signer) return;
+
+    setLoading(true);
+    setShowTransferOptions(false);
+    setTransferStatus('');
+    try {
+      // Call OpenAI API
+      const openAIResponse = await axios.post('/api/openai', { message });
+      const aiResponse = openAIResponse.data.message;
+
+      // Store conversation on Galadriel chain
+      const galadrielWithSigner = galadrielContract.connect(signer);
+      const tx = await galadrielWithSigner.storeConversation(message, aiResponse);
+      await tx.wait();
+
+      setResponse(aiResponse);
+
+      // Check if the message is about transferring and auto-select the destination chain
+      const lowerCaseMessage = message.toLowerCase();
+      if (lowerCaseMessage.includes('transfer')) {
+        setShowTransferOptions(true);
+        if (lowerCaseMessage.includes('arbitrum')) {
+          setDestinationChain('1');
+        } else if (lowerCaseMessage.includes('polygon')) {
+          setDestinationChain('0');
+        }
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setResponse("An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+      setMessage('');
     }
   };
 
@@ -213,14 +222,30 @@ function AIChat() {
           {response}
         </div>
       )}
-      {(message.toLowerCase().includes('transfer to polygon') || message.toLowerCase().includes('transfer to arbitrum')) && (
-        <Button 
-          onClick={handleTransfer} 
-          color="secondary"
-          className="mt-4"
-        >
-          Confirm Transfer to {destinationChain === '0' ? 'Polygon' : 'Arbitrum'}
-        </Button>
+      {showTransferOptions && (
+        <div className="mt-4">
+          <Select 
+            label="Select Destination Chain" 
+            value={destinationChain}
+            onChange={(e) => setDestinationChain(e.target.value)}
+            className="mb-4"
+          >
+            <SelectItem key="0" value="0">Polygon</SelectItem>
+            <SelectItem key="1" value="1">Arbitrum</SelectItem>
+          </Select>
+          <Button 
+            onClick={handleTransfer} 
+            color="secondary"
+            className="mb-4"
+          >
+            Transfer ETH to {destinationChain === '0' ? 'Polygon' : 'Arbitrum'}
+          </Button>
+        </div>
+      )}
+      {transferStatus && (
+        <div className="mt-4 p-4 bg-green-100 text-green-700 rounded">
+          {transferStatus}
+        </div>
       )}
     </div>
   );
