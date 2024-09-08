@@ -1,4 +1,4 @@
-// pages/chat.js
+"use client";
 import React from 'react';
 import AIChat from '../components/AIChat';
 

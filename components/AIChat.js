@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import axios from 'axios';
+import { Button, Select, SelectItem } from "@nextui-org/react";
+import { 
+  TOKEN_TRANSFER_ABI, 
+  CONTRACT_ADDRESS, 
+  DESTINATION_CHAIN_SELECTOR_POLY, 
+  CCIP_BNM_TOKEN_ADDRESS_POLY,
+  DESTINATION_CHAIN_SELECTOR_ARBI,
+  CCIP_BNM_TOKEN_ADDRESS_ARBI
+} from '../utils/constants';
 
-const CONTRACT_ADDRESS = "0x31570E2d954a52f561a4D9126b50FE07b86BD796";
-const CONTRACT_ABI = [
+const GALADRIEL_CONTRACT_ADDRESS = "0x31570E2d954a52f561a4D9126b50FE07b86BD796";
+const GALADRIEL_CONTRACT_ABI = [
   {
     "inputs": [
       {
@@ -58,11 +67,13 @@ const CONTRACT_ABI = [
 function AIChat() {
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
-  const [contract, setContract] = useState(null);
+  const [galadrielContract, setGaladrielContract] = useState(null);
+  const [transferContract, setTransferContract] = useState(null);
   const [account, setAccount] = useState(null);
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
+  const [destinationChain, setDestinationChain] = useState('0'); // 0 for Polygon, 1 for Arbitrum
 
   useEffect(() => {
     const init = async () => {
@@ -70,8 +81,11 @@ function AIChat() {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         setProvider(provider);
 
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-        setContract(contract);
+        const galadrielContract = new ethers.Contract(GALADRIEL_CONTRACT_ADDRESS, GALADRIEL_CONTRACT_ABI, provider);
+        setGaladrielContract(galadrielContract);
+
+        const transferContract = new ethers.Contract(CONTRACT_ADDRESS, TOKEN_TRANSFER_ABI, provider);
+        setTransferContract(transferContract);
 
         window.ethereum.on('accountsChanged', handleAccountsChanged);
       } else {
@@ -91,8 +105,6 @@ function AIChat() {
   const handleAccountsChanged = (accounts) => {
     if (accounts.length > 0) {
       setAccount(accounts[0]);
-
-      // Ensure provider is initialized before trying to get the signer
       if (provider) {
         const signer = provider.getSigner();
         setSigner(signer);
@@ -108,8 +120,6 @@ function AIChat() {
       await window.ethereum.request({ method: 'eth_requestAccounts' });
       const accounts = await provider.listAccounts();
       setAccount(accounts[0]);
-
-      // Ensure provider is available
       if (provider) {
         const signer = provider.getSigner();
         setSigner(signer);
@@ -130,11 +140,17 @@ function AIChat() {
       const aiResponse = openAIResponse.data.message;
 
       // Store conversation on Galadriel chain
-      const contractWithSigner = contract.connect(signer);
-      const tx = await contractWithSigner.storeConversation(message, aiResponse);
+      const galadrielWithSigner = galadrielContract.connect(signer);
+      const tx = await galadrielWithSigner.storeConversation(message, aiResponse);
       await tx.wait();
 
       setResponse(aiResponse);
+
+      // Check if the message is about transferring to Polygon or Arbitrum
+      if (message.toLowerCase().includes('transfer to polygon') || message.toLowerCase().includes('transfer to arbitrum')) {
+        const chain = message.toLowerCase().includes('polygon') ? '0' : '1';
+        setDestinationChain(chain);
+      }
     } catch (error) {
       console.error("Error:", error);
       setResponse("An error occurred. Please try again.");
@@ -144,26 +160,68 @@ function AIChat() {
     }
   };
 
+  const handleTransfer = async () => {
+    try {
+      const chainName = destinationChain === '0' ? 'Polygon' : 'Arbitrum';
+      setResponse(`Initiating transfer from Ethereum to ${chainName}...`);
+
+      const receiver = await signer.getAddress();
+      const amount = ethers.utils.parseUnits('0.001', 18); // 0.001 CCIP-BnM
+
+      const destinationSelector = destinationChain === '0' ? DESTINATION_CHAIN_SELECTOR_POLY : DESTINATION_CHAIN_SELECTOR_ARBI;
+      const tokenAddress = destinationChain === '0' ? CCIP_BNM_TOKEN_ADDRESS_POLY : CCIP_BNM_TOKEN_ADDRESS_ARBI;
+
+      const transferWithSigner = transferContract.connect(signer);
+      const tx = await transferWithSigner.transferTokensPayNative(
+        destinationSelector,
+        receiver,
+        tokenAddress,
+        amount
+      );
+
+      setResponse('Transaction sent. Waiting for confirmation...');
+      await tx.wait();
+      setResponse(`Transfer to ${chainName} successful! Transaction hash: ${tx.hash}`);
+    } catch (error) {
+      console.error('Error:', error);
+      setResponse('Error: ' + error.message);
+    }
+  };
+
   return (
-    <div>
+    <div className="p-4">
       {!account ? (
-        <button onClick={connectWallet}>Connect Wallet</button>
+        <Button onClick={connectWallet} color="primary">Connect Wallet</Button>
       ) : (
         <p>Connected: {account}</p>
       )}
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="mt-4">
         <input
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Enter your message"
           disabled={loading || !account}
+          className="w-full p-2 border rounded"
         />
-        <button type="submit" disabled={loading || !account}>
+        <Button type="submit" disabled={loading || !account} color="primary" className="mt-2">
           {loading ? 'Processing...' : 'Send'}
-        </button>
+        </Button>
       </form>
-      {response && <p>Response: {response}</p>}
+      {response && (
+        <div className="mt-4 p-4 bg-blue-100 text-blue-700 rounded">
+          {response}
+        </div>
+      )}
+      {(message.toLowerCase().includes('transfer to polygon') || message.toLowerCase().includes('transfer to arbitrum')) && (
+        <Button 
+          onClick={handleTransfer} 
+          color="secondary"
+          className="mt-4"
+        >
+          Confirm Transfer to {destinationChain === '0' ? 'Polygon' : 'Arbitrum'}
+        </Button>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: "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",
+  apiKey: "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",
 });
 
 export default async function handler(req, res) {
@@ -12,12 +12,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    const prompt = `You are a professional crypto. When the user want to do an action, you respond like pro, saying that OK I will help you with {user action} and then give a brief steps. Answer in around 100 words is sufficient.`;
+    const prompt = `You are a professional crypto assistant. The user wants to transfer tokens from Ethereum to either Polygon or Arbitrum. Provide a brief step-by-step guide for the process they mentioned. If they didn't specify Polygon or Arbitrum, ask them which one they prefer. Answer in around 100 words. User message: ${message}`;
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4',
         messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant specializing in cryptocurrency and blockchain technology.',
+          },
           {
             role: 'user',
             content: prompt,
