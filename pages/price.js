@@ -20,6 +20,7 @@ export default function Home() {
       try {
         const response = await fetch(url);
         const data = await response.json();
+        console.log(`Full JSON response for ${key}:`, data.parsed);
         const priceData = data.parsed[0]?.price;
         if (priceData) {
           const price = parseFloat(priceData.price) / Math.pow(10, Math.abs(priceData.expo));
@@ -40,7 +41,7 @@ export default function Home() {
     }
 
     fetchAllPrices();
-    const interval = setInterval(fetchAllPrices, 100); // 100 ms as per original request
+    const interval = setInterval(fetchAllPrices, 10000); // 100 ms as per original request
 
     return () => clearInterval(interval);
   }, []);
