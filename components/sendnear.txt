@@ -1,0 +1,119 @@
+import React, { useState, useEffect } from 'react';
+import { Ethereum } from './ethereum';
+import { useWalletSelector } from './WalletSelectorContext';
+
+const SendEthForm = ({ fromAddress }) => {
+  const [toAddress, setToAddress] = useState('');
+  const [amount, setAmount] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [txHash, setTxHash] = useState('');
+  const { selector, accounts } = useWalletSelector();
+  const [ethereum, setEthereum] = useState(null);
+
+  useEffect(() => {
+    const eth = new Ethereum(process.env.NEXT_PUBLIC_ETHEREUM_RPC_URL, 11155111); // Sepolia testnet
+    setEthereum(eth);
+  }, []);
+
+  const sendEth = async (e) => {
+    e.preventDefault();
+    if (!selector || accounts.length === 0 || !ethereum) {
+      setError('Wallet not connected or Ethereum not initialized');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setTxHash('');
+
+    try {
+      const wallet = await selector.wallet();
+      
+      const { transaction, payload } = await ethereum.createPayload(fromAddress, toAddress, amount);
+
+      const derivationPath = sessionStorage.getItem('derivation') || 'ethereum-1';
+      
+      // Use signAndSendTransaction instead of callMethod
+      const result = await wallet.signAndSendTransaction({
+        signerId: wallet.accountId,
+        receiverId: process.env.NEXT_PUBLIC_MPC_CONTRACT_ID,
+        actions: [
+          {
+            type: 'FunctionCall',
+            params: {
+              methodName: 'sign',
+              args: { request: { payload: Array.from(payload), path: derivationPath, key_version: 0 } },
+              gas: '250000000000000',
+              deposit: '250000000000000000000000' // 0.25 NEAR in yoctoNEAR
+            }
+          }
+        ]
+      });
+
+      // Parse the result to get the signature
+      const { big_r, s, recovery_id } = JSON.parse(atob(result.transaction.actions[0].FunctionCall.args));
+
+      const signedTx = await ethereum.reconstructSignatureFromLocalSession(
+        big_r,
+        s,
+        recovery_id,
+        fromAddress
+      );
+
+      const txHash = await ethereum.relayTransaction(signedTx);
+      setTxHash(txHash);
+    } catch (err) {
+      console.error('Error sending ETH:', err);
+      setError('Failed to send ETH. Please check your inputs and try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: "420px", padding: "20px", border: "1px solid #ccc", borderRadius: "8px" }}>
+      <h4>Send ETH</h4>
+      <form onSubmit={sendEth}>
+        <div style={{ marginBottom: "10px" }}>
+          <label htmlFor="toAddress">To Address:</label>
+          <input
+            id="toAddress"
+            type="text"
+            placeholder="0x..."
+            value={toAddress}
+            onChange={(e) => setToAddress(e.target.value)}
+            style={{ width: "100%", padding: "5px" }}
+          />
+        </div>
+        <div style={{ marginBottom: "20px" }}>
+          <label htmlFor="amount">Amount (ETH):</label>
+          <input
+            id="amount"
+            type="number"
+            step="0.000000000000000001"
+            placeholder="0.1"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            style={{ width: "100%", padding: "5px" }}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isLoading || !selector || accounts.length === 0}
+          style={{ width: "100%", padding: "10px", backgroundColor: "#007bff", color: "white", border: "none", borderRadius: "4px" }}
+        >
+          {isLoading ? 'Sending...' : 'Send ETH'}
+        </button>
+      </form>
+      {error && <p style={{ color: "red", marginTop: "10px" }}>{error}</p>}
+      {txHash && (
+        <p style={{ color: "green", marginTop: "10px" }}>
+          Transaction successful! Hash: {txHash}
+        </p>
+      )}
+    </div>
+  );
+};
+
+export default SendEthForm;

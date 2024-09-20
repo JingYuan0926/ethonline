@@ -1,35 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Image from 'next/image';
-import { setupWalletSelector } from "@near-wallet-selector/core";
-import { setupModal } from "@near-wallet-selector/modal-ui";
-import { setupNearWallet } from "@near-wallet-selector/near-wallet";
+import WalletConnect from './WalletConnect';
 
 const Header = () => {
-  const [modal, setModal] = useState(null);
-
-  useEffect(() => {
-    const initializeWalletSelector = async () => {
-      const selector = await setupWalletSelector({
-        network: "testnet",
-        modules: [setupNearWallet()],
-      });
-
-      const walletModal = setupModal(selector, {
-        contractId: "test.testnet", // Change to your contractId
-      });
-
-      setModal(walletModal);
-    };
-
-    initializeWalletSelector();
-  }, []);
-
-  const handleLogin = () => {
-    if (modal) {
-      modal.show(); // Show the NEAR wallet modal
-    }
-  };
-
   return (
     <header className="w-full">
       <div className="container mx-auto px-4 py-6 flex justify-between items-center">
@@ -46,10 +19,7 @@ const Header = () => {
           <a href="#" className="text-white hover:text-gray-300 transition-colors">Rewards</a>
           <a href="#" className="text-white hover:text-gray-300 transition-colors">Scan</a>
           <a href="#" className="text-white hover:text-gray-300 transition-colors">About Us</a>
-          {/* Add the Login Button */}
-          <a href="#" onClick={handleLogin} className="text-white hover:text-gray-300 transition-colors">
-            Login
-          </a>
+          <WalletConnect />
         </nav>
       </div>
     </header>
