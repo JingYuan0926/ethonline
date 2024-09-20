@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { setupAdapter } from 'near-ca';
 import { ethers } from 'ethers';
 
-const SEPOLIA_CHAIN_ID = 11_155_111;
+const SEPOLIA_CHAIN_ID = 11155111;
 
 export default function EthManager() {
   const [ethAddress, setEthAddress] = useState('');
@@ -45,7 +45,7 @@ export default function EthManager() {
       });
   
       // Convert amount from ETH to wei
-      const amountInWei = ethers.utils.parseEther(amount);
+      const amountInWei = BigInt(Math.floor(parseFloat(amount) * 1e18));
   
       const hash = await adapter.signAndSendTransaction({
         to: recipientAddress,
@@ -109,9 +109,9 @@ export default function EthManager() {
             />
           </div>
           <div style={{ marginBottom: '10px' }}>
-            <label htmlFor="amount" style={{ display: 'block', marginBottom: '5px' }}>Amount (in wei):</label>
+            <label htmlFor="amount" style={{ display: 'block', marginBottom: '5px' }}>Amount (in ETH):</label>
             <input
-              type="number"
+              type="text"
               id="amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
